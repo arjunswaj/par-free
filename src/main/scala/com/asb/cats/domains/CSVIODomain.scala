@@ -7,7 +7,7 @@ import cats.free.Free
 import cats.free.Free.inject
 import org.apache.commons.csv.CSVRecord
 
-object CSVDomain {
+object CSVIODomain {
 
   sealed trait CSVIO[A]
 
