@@ -3,6 +3,7 @@ package com.asb.cats.domains
 import cats.InjectK
 import cats.free.Free
 import cats.free.Free.inject
+import cats.implicits._
 import org.apache.commons.csv.CSVRecord
 
 object CSVProcessorDomain {
@@ -13,8 +14,14 @@ object CSVProcessorDomain {
 
   class CSVProcessors[F[_]](implicit I: InjectK[CSVProcessor, F]) {
 
+    type CSVProcessorsF[A] = Free[F, A]
+
     def stringify(csvRecord: CSVRecord): Free[F, String] =
       inject(Stringify(csvRecord))
+
+    def stringifyRecords(csvRecords: Stream[CSVRecord]): Free[F, Stream[String]] =
+      csvRecords.map(rec => stringify(rec))
+        .sequence[CSVProcessorsF, String]
 
   }
 
