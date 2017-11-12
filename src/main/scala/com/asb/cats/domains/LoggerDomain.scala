@@ -3,6 +3,7 @@ package com.asb.cats.domains
 import cats.InjectK
 import cats.free.Free
 import cats.free.Free.inject
+import cats.implicits._
 
 object LoggerDomain {
 
@@ -21,6 +22,15 @@ object LoggerDomain {
 
     def error(msg: String, throwable: Throwable): LogF[Unit] =
       inject(Error(msg, throwable))
+
+    def infos(msgs: Stream[String]): LogF[Stream[Unit]] =
+      msgs.map(msg => info(msg))
+        .sequence[LogF, Unit]
+
+    def errors(msgs: Stream[(String, Throwable)]): LogF[Stream[Unit]] =
+      msgs.map(msg => error(msg._1, msg._2))
+        .sequence[LogF, Unit]
+
   }
 
   object LogActions {
