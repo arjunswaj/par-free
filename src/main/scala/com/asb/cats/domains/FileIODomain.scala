@@ -1,4 +1,4 @@
-package com.asb.cats.par.domains
+package com.asb.cats.domains
 
 import java.io._
 import java.nio.file.Path

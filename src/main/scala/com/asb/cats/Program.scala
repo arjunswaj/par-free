@@ -1,4 +1,4 @@
-package com.asb.cats.par
+package com.asb.cats
 
 object Program {
 

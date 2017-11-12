@@ -1,4 +1,4 @@
-package com.asb.cats.par.domains
+package com.asb.cats.domains
 
 import cats.InjectK
 import cats.free.Free
