@@ -9,52 +9,44 @@ import com.asb.cats.domains.CSVProcessorDomain.{CSVProcessor, CSVProcessors}
 import com.asb.cats.domains.FileIODomain.{FileIO, FileIOs}
 import com.asb.cats.domains.LoggerDomain.{LogAction, LogActions}
 import com.asb.cats.interpreters.par.{CSVIOInterpreter, CSVProcessorInterpreter, FileInterpreter, LoggerInterpreter}
+import com.asb.cats.programs.CSVReader
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
 
 object Program {
 
   type T1[A] = EitherK[FileIO, CSVIO, A]
-  type T2[A] = EitherK[CSVProcessor, T1, A]
-  type T[A] = EitherK[LogAction, T2, A]
+  type T[A] = EitherK[CSVProcessor, T1, A]
 
   val i1: T1 ~> Future = FileInterpreter or CSVIOInterpreter
-  val i2: T2 ~> Future = CSVProcessorInterpreter or i1
-  val i: T ~> Future = LoggerInterpreter or i2
+  val i2: T ~> Future = CSVProcessorInterpreter or i1
 
-  def program(filename: String)(implicit CI: CSVProcessors[T], CP: CSVIOs[T], F: FileIOs[T], L: LogActions[T]): Free[T, Stream[Unit]] = for {
-    path <- F.getFilePath(filename)
-    reader <- F.getBufferedReader(path)
-    records <- CP.readCSV(reader)
-    strings <- CI.stringifyRecords(records)
-    res <- L.infos(strings)
-    _ <- F.close(reader)
+  val i: LogAction ~> Future = LoggerInterpreter
+
+  def printer(str: Stream[String])(implicit L: LogActions[LogAction]): Free[LogAction, Stream[Unit]] = for {
+    res <- L.infos(str)
   } yield res
 
   def main(args: Array[String]): Unit = {
     implicit val CI: CSVProcessors[T] = CSVProcessors[T]
     implicit val CP: CSVIOs[T] = CSVIOs[T]
     implicit val F: FileIOs[T] = FileIOs[T]
-    implicit val L: LogActions[T] = LogActions[T]
+    implicit val L: LogActions[LogAction] = LogActions[LogAction]
 
-    val result = program("asb.csv").foldMap(i)
-    val search = program("search.csv").foldMap(i)
+    val asbFuture = CSVReader.read("asb.csv").foldMap(i2)
+    val searchFuture = CSVReader.read("search.csv").foldMap(i2)
 
-    result.onComplete {
-      case Success(_) => println("ASB Success")
-      case Failure(exception) => exception.printStackTrace()
-    }
+    val strings = for {
+      asb <- asbFuture
+      search <- searchFuture
+    } yield asb ++ search
 
-    search.onComplete {
-      case Success(_) => println("Search Success")
-      case Failure(exception) => exception.printStackTrace()
-    }
+    val results = strings.map(printer)
+      .map(_.foldMap(i))
 
-    Await.result(result, 1000 millis)
-    Await.result(search, 5000 millis)
+    Await.result(results, 62 millis)
   }
 
 }
